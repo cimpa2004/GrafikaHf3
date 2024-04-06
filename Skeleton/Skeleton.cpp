@@ -34,33 +34,66 @@
 #include "framework.h"
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
+//uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
+//layout(location = 0) in vec2 vp;	// Varying input: vp = vertex position is expected in attrib array 0
+//
+//void main() {
+//	gl_Position = vec4(vp.x, vp.y, 0, 1) * MVP;		// transform vp from modeling space to normalized device space
+//}
 const char * const vertexSource = R"(
 	#version 330				
 	precision highp float;		// normal floats, makes no difference on desktop computers
 
-	uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
-	layout(location = 0) in vec2 vp;	// Varying input: vp = vertex position is expected in attrib array 0
-
+	uniform mat4 MVP;
+	layout(location = 0) in vec2 vtxPos;
+	layout(location = 1) in vec2 vtxUV;
+	out vec2 texcoord;
 	void main() {
-		gl_Position = vec4(vp.x, vp.y, 0, 1) * MVP;		// transform vp from modeling space to normalized device space
+		gl_Position = vec4(vtxPos, 0, 1) * MVP;
+		texcoord = vtxUV;
 	}
+
+	
 )";
 
-// fragment shader in GLSL
+//// fragment shader in GLSL
+// bent van
+//uniform vec3 color;		// uniform variable, the color of the primitive
+//out vec4 outColor;		// computed color of the current pixel
+//void main() {
+//	outColor = vec4(color, 1);	// computed color is the color of the primitive
+//}
+
 const char * const fragmentSource = R"(
 	#version 330			
 	precision highp float;	// normal floats, makes no difference on desktop computers
 	
-	uniform vec3 color;		// uniform variable, the color of the primitive
-	out vec4 outColor;		// computed color of the current pixel
+	uniform sampler2D samplerUnit;
+	in vec2 texcoord;
+	out vec4 fragmentColor;
 
 	void main() {
-		outColor = vec4(color, 1);	// computed color is the color of the primitive
+		fragmentColor = texture(samplerUnit, texcoord);
 	}
 )";
 
 GPUProgram gpuProgram; // vertex and fragment shaders
 unsigned int vao;	   // virtual world on the GPU
+
+
+//unsigned int textureId;
+//void Draw() {
+//	int sampler = 0; // which sampler unit should be used
+//	int location = glGetUniformLocation(shaderProg,
+//		"samplerUnit");
+//	glUniform1i(location, sampler);
+//	glActiveTexture(GL_TEXTURE0 + sampler); // = GL_TEXTURE0
+//	glBindTexture(GL_TEXTURE_2D, textureId);
+//	glBindVertexArray(vao);
+//	glDrawArrays(GL_TRIANGLES, 0, nVtx);
+//}
+
+
 
 enum stateOfTexture
 {
@@ -86,6 +119,30 @@ public:
 
 		// Upload texture to GPU memory
 	}
+
+	//void Draw() {
+	//		int sampler = 0; // which sampler unit should be used
+	//		int location = glGetUniformLocation(shaderProg,
+	//			"samplerUnit");
+	//		glUniform1i(location, sampler);
+	//		glActiveTexture(GL_TEXTURE0 + sampler); // = GL_TEXTURE0
+	//		glBindTexture(GL_TEXTURE_2D, textureId);
+	//		glBindVertexArray(vao);
+	//		glDrawArrays(GL_TRIANGLES, 0, nVtx);
+	//}
+
+	void UploadTexture(int width, int height, std::vector<vec4>& image) {
+		glGenTextures(1, &textureId);
+		glBindTexture(GL_TEXTURE_2D, textureId); // binding
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+			GL_RGBA, GL_FLOAT, &image[0]); //Texture -> GPU
+		if (currentState == linear)
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		else
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		
+	}
+
 
 	void DecreaseResolution(int amount) {
 		resolution -= amount;
