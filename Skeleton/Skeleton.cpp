@@ -144,6 +144,7 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
 
+	//not part of the solution
 	void MoveVertex(float cX, float cY) {
 		vec4 wCursor4 = vec4(cX, cY, 0, 1) * camera.Pinv() * camera.Vinv();
 		vec2 wCursor(wCursor4.x, wCursor4.y);
@@ -180,6 +181,61 @@ public:
 		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 10);	// draw two triangles forming a quad
 	}
+
+	void RotateAroundOrigin(float angle) {
+		// Calculate sine and cosine of the angle
+		float cosAngle = cosf(angle);
+		float sinAngle = sinf(angle);
+
+		// Define the origin of rotation
+		vec2 origin = vertices[0];
+
+		// Iterate through all vertices (excluding the first one)
+		for (int i = 1; i < 10; ++i) {
+			// Translate the vertex to the origin
+			vec2 translated = vertices[i] - origin;
+
+			// Rotate the translated vertex
+			float x = translated.x * cosAngle - translated.y * sinAngle;
+			float y = translated.x * sinAngle + translated.y * cosAngle;
+
+			// Translate the vertex back to its original position
+			vertices[i] = vec2(x, y) + origin;
+		}
+
+		// Update GPU buffer data
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+	}
+	void MoveOnCircularPath(float elapsedTime) {
+		// Calculate the angle based on time elapsed
+		float angle = 2 * M_PI * (elapsedTime / 10.0f); // 10 seconds for a full circle
+
+		// Calculate new positions for each vertex
+		for (int i = 0; i < 10; ++i) {
+			// Calculate the displacement of the vertex relative to the center (20, 30)
+			float deltaX = vertices[i].x - 20;
+			float deltaY = vertices[i].y - 30;
+
+			// Calculate the new position for the vertex using the circular path formula
+			float newX = 20 + deltaX * cos(angle) - deltaY * sin(angle);
+			float newY = 30 + deltaX * sin(angle) + deltaY * cos(angle);
+
+			// Update the vertex position
+			vertices[i].x = newX;
+			vertices[i].y = newY;
+		}
+
+		// Update GPU buffer data
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+	}
+
+
+
+
+
+
 };
 
 
@@ -208,6 +264,8 @@ void onInitialization() {
 	printf("SPACE: Toggle between checkerboard (cpu) and Mandelbrot (gpu) textures\n");
 }
 
+bool animatonOn = false;
+
 // Window has become invalid: Redraw
 void onDisplay() {
 	glClearColor(0, 0, 0, 0);							// background color 
@@ -225,6 +283,9 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	else if(key == 'h') {
 		star->ChangeS(-10);
 		glutPostRedisplay();
+	}
+	else if (key == 'a') {
+		animatonOn = true;
 	}
 }
 
@@ -257,8 +318,31 @@ void onMouse(int button, int state, int pX, int pY) {
 	onMouseMotion(pX, pY);
 }
 
+void Animate() {
+	if (animatonOn) {
+		static long prevTime = glutGet(GLUT_ELAPSED_TIME);
+		long currentTime = glutGet(GLUT_ELAPSED_TIME);
+		float elapsedTime = (currentTime - prevTime) / 1000.0f; // Convert milliseconds to seconds
+		prevTime = currentTime;
+
+		// Calculate the rotation frequencies
+		float rotationFrequencyAroundOrigin = 0.2f; // Rotations per second
+
+		// Scale factor to adjust rotation speed
+		float scaleFactor = 0.5f;
+
+		// Calculate the rotation angles for this frame
+		float rotationAngleAroundOrigin = 2 * M_PI * rotationFrequencyAroundOrigin * elapsedTime * scaleFactor;
+
+		// Rotate the star around its origin
+		star->RotateAroundOrigin(rotationAngleAroundOrigin);
+		star->MoveOnCircularPath(elapsedTime);
+	}
+}
+
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
 	long time = glutGet(GLUT_ELAPSED_TIME);
+	Animate();
 	glutPostRedisplay();
 }
