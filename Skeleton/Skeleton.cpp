@@ -33,225 +33,232 @@
 //=============================================================================================
 #include "framework.h"
 
-// vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
-//uniform mat4 MVP;			// uniform variable, the Model-View-Projection transformation matrix
-//layout(location = 0) in vec2 vp;	// Varying input: vp = vertex position is expected in attrib array 0
-//
-//void main() {
-//	gl_Position = vec4(vp.x, vp.y, 0, 1) * MVP;		// transform vp from modeling space to normalized device space
-//}
-const char * const vertexSource = R"(
-	#version 330				
-	precision highp float;		// normal floats, makes no difference on desktop computers
+// vertex shader in GLSL
+const char* vertexSource = R"(
+	#version 330
+    precision highp float;
 
-	uniform mat4 MVP;
-	layout(location = 0) in vec2 vtxPos;
-	layout(location = 1) in vec2 vtxUV;
-	out vec2 texcoord;
-	void main() {
-		gl_Position = vec4(vtxPos, 0, 1) * MVP;
-		texcoord = vtxUV;
-	}
+	uniform mat4 MVP;			// Model-View-Projection matrix in row-major format
 
-	
-)";
+	layout(location = 0) in vec2 vertexPosition;	// Attrib Array 0
+	layout(location = 1) in vec2 vertexUV;			// Attrib Array 1
 
-//// fragment shader in GLSL
-// bent van
-//uniform vec3 color;		// uniform variable, the color of the primitive
-//out vec4 outColor;		// computed color of the current pixel
-//void main() {
-//	outColor = vec4(color, 1);	// computed color is the color of the primitive
-//}
-
-const char * const fragmentSource = R"(
-	#version 330			
-	precision highp float;	// normal floats, makes no difference on desktop computers
-	
-	uniform sampler2D samplerUnit;
-	in vec2 texcoord;
-	out vec4 fragmentColor;
+	out vec2 texCoord;								// output attribute
 
 	void main() {
-		fragmentColor = texture(samplerUnit, texcoord);
+		texCoord = vertexUV;														// copy texture coordinates
+		gl_Position = vec4(vertexPosition.x, vertexPosition.y, 0, 1) * MVP; 		// transform to clipping space
 	}
 )";
 
-GPUProgram gpuProgram; // vertex and fragment shaders
-unsigned int vao;	   // virtual world on the GPU
+// fragment shader in GLSL
+const char* fragmentSource = R"(
+	#version 330
+    precision highp float;
 
+	uniform sampler2D textureUnit;
+	uniform int isGPUProcedural;
 
-//unsigned int textureId;
-//void Draw() {
-//	int sampler = 0; // which sampler unit should be used
-//	int location = glGetUniformLocation(shaderProg,
-//		"samplerUnit");
-//	glUniform1i(location, sampler);
-//	glActiveTexture(GL_TEXTURE0 + sampler); // = GL_TEXTURE0
-//	glBindTexture(GL_TEXTURE_2D, textureId);
-//	glBindVertexArray(vao);
-//	glDrawArrays(GL_TRIANGLES, 0, nVtx);
-//}
+	in vec2 texCoord;			// variable input: interpolated texture coordinates
+	out vec4 fragmentColor;		// output that goes to the raster memory as told by glBindFragDataLocation
 
+    int Mandelbrot(vec2 c) {
+		vec2 z = c;
+		for(int i = 10000; i > 0; i--) {
+			z = vec2(z.x * z.x - z.y * z.y + c.x, 2 * z.x * z.y + c.y); // z_{n+1} = z_{n}^2 + c
+			if (dot(z, z) > 4) return i;
+		}
+		return 0;
+	}
 
+	void main() {
+		if (isGPUProcedural != 0) {
+			int i = Mandelbrot(texCoord * 3 - vec2(2, 1.5)); 
+			fragmentColor = vec4((i % 5)/5.0f, (i % 11) / 11.0f, (i % 31) / 31.0f, 1); 
+		} else {
+			fragmentColor = texture(textureUnit, texCoord);
+		}
+	}
+)";
 
-enum stateOfTexture
-{
-	linear, nearest
-};
-
-class PoincareCircle : public Texture {
-private:
-	
-	stateOfTexture currentState = linear;
-	int resolution; // Current resolution of the texture
-
+// 2D camera
+class Camera2D {
+	vec2 wCenter; // center in world coordinates
+	vec2 wSize;   // width and height in world coordinates
 public:
-	PoincareCircle() : Texture(), resolution(300) {
-		// Constructor to initialize the texture
+	Camera2D() : wCenter(20, 30), wSize(150, 150) { }
+
+	mat4 V() { return TranslateMatrix(-wCenter); }
+	mat4 P() { return ScaleMatrix(vec2(2 / wSize.x, 2 / wSize.y)); }
+
+	mat4 Vinv() { return TranslateMatrix(wCenter); }
+	mat4 Pinv() { return ScaleMatrix(vec2(wSize.x / 2, wSize.y / 2)); }
+};
+
+Camera2D camera;       // 2D camera
+GPUProgram gpuProgram; // vertex and fragment shaders
+int isGPUProcedural = (int)false;
+
+class Star {
+	unsigned int vao, vbo[2];
+	vec2 vertices[10], uvs[10]; //4 csúcs és textura coord
+	Texture texture;
+	int s = 40;
+public:
+	Star(int width, int height, const std::vector<vec4>& image) : texture(width, height, image) {
+		vertices[0] = vec2(50, 30); uvs[0] = vec2(0.5, 0.5); // teljes képet texturázzuk rá
+		vertices[1] = vec2(90, 70);  uvs[1] = vec2(1, 1);
+		vertices[2] = vec2(50, 30+s);   uvs[2] = vec2(0.5, 1);
+		vertices[3] = vec2(10, 70);  uvs[3] = vec2(0, 1);
+		vertices[4] = vec2(50-s, 30); uvs[4] = vec2(0, 0.5); 
+		vertices[5] = vec2(10, -10);  uvs[5] = vec2(0, 0);
+		vertices[6] = vec2(50, 30-s);   uvs[6] = vec2(0.5, 0);
+		vertices[7] = vec2(90, -10);  uvs[7] = vec2(1, 0);
+		vertices[8] = vec2(50+s, 30); uvs[8] = vec2(1, 0.5); 
+		vertices[9] = vec2(90, 70);  uvs[9] = vec2(1, 1);
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);		
+
+		glGenBuffers(2, vbo);	
+
+		// vertex coordinates: vbo[0] -> Attrib Array 0 -> vertexPosition of the vertex shader
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);    
+
+		// vertex coordinates: vbo[1] -> Attrib Array 1 -> vertexUV of the vertex shader
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);     
 	}
 
-	void RenderToTexture() {
-		// Method to compute and upload texture to GPU memory based on current resolution
-
-		// Compute texture image based on current resolution
-
-
-		// Upload texture to GPU memory
+	void ChangeS(int value) { //s lehet nulla de akkor eltûnik
+		s += value;
+		vertices[2] = vec2(vertices[0].x, vertices[0].y + s);
+		vertices[4] = vec2(vertices[0].x - s, vertices[0].y);
+		vertices[6] = vec2(vertices[0].x, vertices[0].y - s);
+		vertices[8] = vec2(vertices[0].x + s, vertices[0].y);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
 
-	//void Draw() {
-	//		int sampler = 0; // which sampler unit should be used
-	//		int location = glGetUniformLocation(shaderProg,
-	//			"samplerUnit");
-	//		glUniform1i(location, sampler);
-	//		glActiveTexture(GL_TEXTURE0 + sampler); // = GL_TEXTURE0
-	//		glBindTexture(GL_TEXTURE_2D, textureId);
-	//		glBindVertexArray(vao);
-	//		glDrawArrays(GL_TRIANGLES, 0, nVtx);
-	//}
+	void MoveVertex(float cX, float cY) {
+		vec4 wCursor4 = vec4(cX, cY, 0, 1) * camera.Pinv() * camera.Vinv();
+		vec2 wCursor(wCursor4.x, wCursor4.y);
 
-	void UploadTexture(int width, int height, std::vector<vec4>& image) {
-		glGenTextures(1, &textureId);
-		glBindTexture(GL_TEXTURE_2D, textureId); // binding
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
-			GL_RGBA, GL_FLOAT, &image[0]); //Texture -> GPU
-		if (currentState == linear)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		else
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		int closestVertex = 0;
+		float distMin = length(vertices[0] - wCursor);
+		for (int i = 1; i < 10; i++) {
+			float dist = length(vertices[i] - wCursor);
+			if (dist < distMin) {
+				distMin = dist;
+				closestVertex = i;
+			}
+		}
+		if (closestVertex == 1 || closestVertex == 9){
+			vertices[1] = wCursor;
+			vertices[9] = wCursor;
+		}
+		else {
+			vertices[closestVertex] = wCursor;
+		}
 		
+
+		// copy data to the GPU
+		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);	   // copy to that part of the memory which is modified 
 	}
 
+	void Draw() {
+		mat4 MVPTransform = camera.V() * camera.P();
+		gpuProgram.setUniform(MVPTransform, "MVP");
+		gpuProgram.setUniform(isGPUProcedural, "isGPUProcedural");
+		gpuProgram.setUniform(texture, "textureUnit");
 
-	void DecreaseResolution(int amount) {
-		resolution -= amount;
-		if (resolution < 0)
-			resolution = 0;
-		RenderToTexture(); 
-	}
-
-	void IncreaseResolution(int amount) {
-		resolution += amount;
-		RenderToTexture(); 
-	}
-
-	void ChangeState(stateOfTexture s) {
-		currentState = s;
+		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 10);	// draw two triangles forming a quad
 	}
 };
 
 
 
-
-
+Star* star; // The virtual world: one object
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	glGenVertexArrays(1, &vao);	// get 1 vao id
-	glBindVertexArray(vao);		// make it active
-
-	unsigned int vbo;		// vertex buffer object
-	glGenBuffers(1, &vbo);	// Generate 1 buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
-	float vertices[] = { -0.8f, -0.8f, -0.6f, 1.0f, 0.8f, -0.2f };
-	glBufferData(GL_ARRAY_BUFFER, 	// Copy to GPU target
-		sizeof(vertices),  // # bytes
-		vertices,	      	// address
-		GL_STATIC_DRAW);	// we do not change later
-
-	glEnableVertexAttribArray(0);  // AttribArray 0
-	glVertexAttribPointer(0,       // vbo -> AttribArray 0
-		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-		0, NULL); 		     // stride, offset: tightly packed
+	int width = 128, height = 128;				// create checkerboard texture procedurally
+	std::vector<vec4> image(width * height);
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			float luminance = ((x / 16) % 2) ^ ((y / 16) % 2);
+			image[y * width + x] = vec4(luminance, luminance, luminance, 1);
+		}
+	}
+	star = new Star(width, height, image);
 
 	// create program for the GPU
-	gpuProgram.create(vertexSource, fragmentSource, "outColor");
+	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
+
+	printf("\nUsage: \n");
+	printf("Mouse Left Button: Pick and move vertex\n");
+	printf("SPACE: Toggle between checkerboard (cpu) and Mandelbrot (gpu) textures\n");
 }
 
 // Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0, 0, 0, 0);     // background color
-	glClear(GL_COLOR_BUFFER_BIT); // clear frame buffer
-
-	// Set color to (0, 1, 0) = green
-	int location = glGetUniformLocation(gpuProgram.getId(), "color");
-	glUniform3f(location, 0.0f, 1.0f, 0.0f); // 3 floats
-
-	float MVPtransf[4][4] = { 1, 0, 0, 0,    // MVP matrix, 
-							  0, 1, 0, 0,    // row-major!
-							  0, 0, 1, 0,
-							  0, 0, 0, 1 };
-
-	location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-	glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
-
-	glBindVertexArray(vao);  // Draw call
-	glDrawArrays(GL_TRIANGLES, 0 /*startIdx*/, 3 /*# Elements*/);
-
-	glutSwapBuffers(); // exchange buffers for double buffering
+	glClearColor(0, 0, 0, 0);							// background color 
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the screen
+	star->Draw();
+	glutSwapBuffers();									// exchange the two buffers
 }
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-	if (key == 'd') glutPostRedisplay();         // if d, invalidate display, i.e. redraw
+	if (key == ' ') {
+		isGPUProcedural = !isGPUProcedural;
+		glutPostRedisplay();// if d, invalidate display, i.e. redraw
+	}
+	else if(key == 'h') {
+		star->ChangeS(-10);
+		glutPostRedisplay();
+	}
 }
 
 // Key of ASCII code released
 void onKeyboardUp(unsigned char key, int pX, int pY) {
 }
 
+bool mouseLeftPressed = false, mouseRightPressed = false;
+
 // Move mouse with key pressed
-void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-	printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
+void onMouseMotion(int pX, int pY) {
+	if (mouseLeftPressed) {  // GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON and GLUT_DOWN / GLUT_UP
+		float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
+		float cY = 1.0f - 2.0f * pY / windowHeight;
+		star->MoveVertex(cX, cY);
+	}
+	glutPostRedisplay();     // redraw
 }
 
 // Mouse click event
-void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-
-	char * buttonStat;
-	switch (state) {
-	case GLUT_DOWN: buttonStat = "pressed"; break;
-	case GLUT_UP:   buttonStat = "released"; break;
+void onMouse(int button, int state, int pX, int pY) {
+	if (button == GLUT_LEFT_BUTTON) {
+		if (state == GLUT_DOWN) mouseLeftPressed = true;
+		else					mouseLeftPressed = false;
 	}
-
-	switch (button) {
-	case GLUT_LEFT_BUTTON:   printf("Left button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);   break;
-	case GLUT_MIDDLE_BUTTON: printf("Middle button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY); break;
-	case GLUT_RIGHT_BUTTON:  printf("Right button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);  break;
+	if (button == GLUT_RIGHT_BUTTON) {
+		if (state == GLUT_DOWN) mouseRightPressed = true;
+		else					mouseRightPressed = false;
 	}
+	onMouseMotion(pX, pY);
 }
 
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
-	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
+	long time = glutGet(GLUT_ELAPSED_TIME);
+	glutPostRedisplay();
 }
