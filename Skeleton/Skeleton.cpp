@@ -99,6 +99,85 @@ Camera2D camera;       // 2D camera
 GPUProgram gpuProgram; // vertex and fragment shaders
 int isGPUProcedural = (int)false;
 
+
+class PoincareTexture {
+	unsigned int textureID; // Az OpenGL textúra azonosítója
+	int width, height; // Textúra mérete
+	int resolution = 300;
+
+public:
+	PoincareTexture(int width, int height) : width(width), height(height) {
+		// Textúra létrehozása OpenGL segítségével
+		glGenTextures(1, &textureID);
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+
+	~PoincareTexture() {
+		// Textúra felszabadítása
+		glDeleteTextures(1, &textureID);
+	}
+
+	std::vector<vec4> RenderToTexture() {
+		std::vector<vec4> image(width * height); // A textúra képét tároló vektor
+
+		// Poincaré kör textúra tartalmának kiszámítása
+		float centerX = width / 2.0f;
+		float centerY = height / 2.0f;
+		float radius = fmin(centerX, centerY) - 1.0f; // Kör sugara, hogy ne lépje túl a kép méretét
+
+		// Alapszín beállítása
+		vec4 baseColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+		// Kör alakú cellák színezése
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				// Kör középpontjától való távolság számítása
+				float dx = x - centerX;
+				float dy = y - centerY;
+				float distance = sqrtf(dx * dx + dy * dy);
+
+				// Kör belsõ részének ellenõrzése
+				if (distance < radius) {
+					// A körön belüli cellák színezése
+					if ((x / 16 + y / 16) % 2 == 0) { // Minden 16. cella másik színû legyen
+						image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // Sárga
+					}
+					else {
+						image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+					}
+				}
+				else {
+					// A körön kívül lévõ cellák alapszínnel való kitöltése
+					image[y * width + x] = baseColor;
+				}
+			}
+		}
+
+		// A textúra feltöltése az OpenGL textúra memóriájába
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, &image[0]);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		return image;
+	}
+
+
+
+	// Getter függvények a textúra szélességének és magasságának lekérdezésére
+	int GetWidth() const { return width; }
+	int GetHeight() const { return height; }
+
+	void setResolution(int v) { this->resolution = v; }
+
+	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
+	unsigned int GetTextureID() const { return textureID; }
+};
+
+
 class Star {
 	unsigned int vao, vbo[2];
 	vec2 vertices[10], uvs[10]; //4 csúcs és textura coord
@@ -144,33 +223,7 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
 
-	//not part of the solution
-	void MoveVertex(float cX, float cY) {
-		vec4 wCursor4 = vec4(cX, cY, 0, 1) * camera.Pinv() * camera.Vinv();
-		vec2 wCursor(wCursor4.x, wCursor4.y);
-
-		int closestVertex = 0;
-		float distMin = length(vertices[0] - wCursor);
-		for (int i = 1; i < 10; i++) {
-			float dist = length(vertices[i] - wCursor);
-			if (dist < distMin) {
-				distMin = dist;
-				closestVertex = i;
-			}
-		}
-		if (closestVertex == 1 || closestVertex == 9){
-			vertices[1] = wCursor;
-			vertices[9] = wCursor;
-		}
-		else {
-			vertices[closestVertex] = wCursor;
-		}
-		
-
-		// copy data to the GPU
-		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);	   // copy to that part of the memory which is modified 
-	}
+	
 
 	void Draw() {
 		mat4 MVPTransform = camera.V() * camera.P();
@@ -241,7 +294,7 @@ public:
 
 
 Star* star; // The virtual world: one object
-
+PoincareTexture* texture;
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
@@ -254,7 +307,10 @@ void onInitialization() {
 			image[y * width + x] = vec4(luminance, luminance, luminance, 1);
 		}
 	}
-	star = new Star(width, height, image);
+	
+
+	texture =  new PoincareTexture(width, height);
+	star = new Star(width, height, texture->RenderToTexture());
 
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
@@ -300,7 +356,6 @@ void onMouseMotion(int pX, int pY) {
 	if (mouseLeftPressed) {  // GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON and GLUT_DOWN / GLUT_UP
 		float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
 		float cY = 1.0f - 2.0f * pY / windowHeight;
-		star->MoveVertex(cX, cY);
 	}
 	glutPostRedisplay();     // redraw
 }
