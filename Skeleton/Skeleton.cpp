@@ -105,21 +105,55 @@ class PoincareTexture {
 	int width, height; // Textúra mérete
 	int resolution = 300;
 
+	std::vector<vec3> getPointsOfLine(int r) {
+		std::vector<vec3> points;
+		vec3 p0 (0, 0, 1);
+		for (float t = 0.5; t <= 5.5; t=t+1){
+			vec3 point(p0*coshf(t)+ vec3(cos(r), sin(r),0)*sinhf(t));
+			points.push_back(point);
+			printf("x:%f, y:%f\n",point.x,point.y);
+		}
+		return points;
+	}
+
+	std::vector<vec3> GetEuklidesCircles(int r) {
+		std::vector<vec3> circles;
+		std::vector<vec3> points = getPointsOfLine(r);
+		for (const auto& P : points) {
+			float d = sqrtf(P.x * P.x + P.y * P.y);
+			vec3 Pinv = P/ d;
+			Pinv.z = 1;
+			vec3 center = (P + Pinv) / 2.0f;
+			center.z = 1;
+			float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
+			circles.push_back(vec3(center.x, center.y, radius));
+		}
+		return circles;
+	}
+
+	bool IsPointInCircle(vec3 point, vec3 Circle) {
+		vec2 center = vec2(Circle.x, Circle.y);
+		float radius = Circle.z;
+		float distance = sqrtf(powf(point.x - center.x, 2) + powf(point.y - center.y, 2));
+		return distance <= radius;
+	}
+
 public:
 	PoincareTexture(int width, int height) : width(width), height(height) {
 		// Textúra létrehozása OpenGL segítségével
+		textureID = 1;
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);*/
 	}
 
-	~PoincareTexture() {
-		// Textúra felszabadítása
-		glDeleteTextures(1, &textureID);
-	}
+	//~PoincareTexture() {
+	//	// Textúra felszabadítása
+	//	glDeleteTextures(1, &textureID);
+	//}
 
 	std::vector<vec4> RenderToTexture() {
 		std::vector<vec4> image(width * height); // A textúra képét tároló vektor
@@ -132,38 +166,50 @@ public:
 		// Alapszín beállítása
 		vec4 baseColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-		// Kör alakú cellák színezése
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				// Kör középpontjától való távolság számítása
-				float dx = x - centerX;
-				float dy = y - centerY;
-				float distance = sqrtf(dx * dx + dy * dy);
+		// Körök megszerzése az alap pontok alapján
+		for (int r = 0; r <360; r += 40) {
+			std::vector<vec3> circles = GetEuklidesCircles(r);
+			
+			// Kör alakú cellák színezése
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					int count = 0;
+					float dx = x - centerX;
+					float dy = y - centerY;
+					float distance = sqrtf(dx * dx + dy * dy);
+					vec3 currentPixel(x, y, 1);
 
-				// Kör belsõ részének ellenõrzése
-				if (distance < radius) {
-					// A körön belüli cellák színezése
-					if ((x / 16 + y / 16) % 2 == 0) { // Minden 16. cella másik színû legyen
-						image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // Sárga
+					// Iteráció minden körön és ellenõrzés, hogy a pixel azon belül van-e
+					for (vec3 circle : circles) {
+						if (IsPointInCircle(currentPixel, circle)) {
+							count++;
+						}
+					}
+
+					// Körön belüli vagy kívüli pont ellenõrzése
+					if (distance < radius) {
+
+						// A pont színezése az aktuális körök számától függõen
+						if (count % 2 == 0) {
+							image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // Sárga
+						}
+						else {
+							image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+						}
 					}
 					else {
-						image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+						// A körön kívül lévõ pont fekete
+						image[y * width + x] = baseColor;
 					}
-				}
-				else {
-					// A körön kívül lévõ cellák alapszínnel való kitöltése
-					image[y * width + x] = baseColor;
 				}
 			}
 		}
 
-		// A textúra feltöltése az OpenGL textúra memóriájába
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, &image[0]);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
 		return image;
 	}
+
+
+
 
 
 
