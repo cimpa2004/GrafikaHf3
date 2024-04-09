@@ -110,23 +110,34 @@ class PoincareTexture {
 		vec3 p0 (0, 0, 1);
 		for (float t = 0.5; t <= 5.5; t=t+1){
 			vec3 point(p0*coshf(t)+ vec3(cos(r), sin(r),0)*sinhf(t));
+			// Sztereografikus vetítés alkalmazása
+			float scaleFactor = 1.0f / (1.0f + point.z); // Állandó a vetítéshez
+			point.x *= scaleFactor;
+			point.y *= scaleFactor;
+			point.z = 0;
 			points.push_back(point);
 			printf("x:%f, y:%f\n",point.x,point.y);
 		}
 		return points;
 	}
 
-	std::vector<vec3> GetEuklidesCircles(int r) {
+	std::vector<vec3> GetEuklidesCircles() {
+		int i = 0;
 		std::vector<vec3> circles;
-		std::vector<vec3> points = getPointsOfLine(r);
-		for (const auto& P : points) {
-			float d = sqrtf(P.x * P.x + P.y * P.y);
-			vec3 Pinv = P/ d;
-			Pinv.z = 1;
-			vec3 center = (P + Pinv) / 2.0f;
-			center.z = 1;
-			float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
-			circles.push_back(vec3(center.x, center.y, radius));
+		for (int r = 0; r < 360; r += 40) {
+			std::vector<vec3> points = getPointsOfLine(r);
+			for (const auto& P : points) {
+				float d = sqrtf(P.x * P.x + P.y * P.y);
+				vec3 Pinv = P / d;
+				Pinv.z = 1;
+				vec3 center = (P + Pinv) / 2.0f;
+				center.z = 1;
+				float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
+				circles.push_back(vec3(center.x, center.y, radius));
+				//printf("x:%f, y:%f\n", center.x, center.y);
+				/*printf("%d\n", i);
+				i++;*/
+			}
 		}
 		return circles;
 	}
@@ -136,6 +147,13 @@ class PoincareTexture {
 		float radius = Circle.z;
 		float distance = sqrtf(powf(point.x - center.x, 2) + powf(point.y - center.y, 2));
 		return distance <= radius;
+	}
+
+	vec4 SwapColor(vec4 current) {
+		if (current.x == 1.f)
+		{
+			return vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+		}else return vec4(1.0f, 1.0f, 0.0f, 1.0f);
 	}
 
 public:
@@ -157,7 +175,7 @@ public:
 
 	std::vector<vec4> RenderToTexture() {
 		std::vector<vec4> image(width * height); // A textúra képét tároló vektor
-
+		vec4 color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		// Poincaré kör textúra tartalmának kiszámítása
 		float centerX = width / 2.0f;
 		float centerY = height / 2.0f;
@@ -167,17 +185,18 @@ public:
 		vec4 baseColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 		// Körök megszerzése az alap pontok alapján
-		for (int r = 0; r <360; r += 40) {
-			std::vector<vec3> circles = GetEuklidesCircles(r);
+		std::vector<vec3> circles = GetEuklidesCircles();
 			
 			// Kör alakú cellák színezése
 			for (int y = 0; y < height; y++) {
 				for (int x = 0; x < width; x++) {
+					float cX = 2.0f * x / width - 1;
+					float cY = 1.0f - 2.0f * y / height;
 					int count = 0;
 					float dx = x - centerX;
 					float dy = y - centerY;
 					float distance = sqrtf(dx * dx + dy * dy);
-					vec3 currentPixel(x, y, 1);
+					vec3 currentPixel(cX, cY, 1);
 
 					// Iteráció minden körön és ellenõrzés, hogy a pixel azon belül van-e
 					for (vec3 circle : circles) {
@@ -202,7 +221,7 @@ public:
 						image[y * width + x] = baseColor;
 					}
 				}
-			}
+			
 		}
 
 		return image;
