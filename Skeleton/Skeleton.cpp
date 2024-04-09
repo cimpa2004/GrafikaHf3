@@ -103,27 +103,26 @@ int isGPUProcedural = (int)false;
 class PoincareTexture {
 	unsigned int textureID; // Az OpenGL textúra azonosítója
 	int width, height; // Textúra mérete
-	int resolution = 300;
 
 	std::vector<vec3> getPointsOfLine(int r) {
 		std::vector<vec3> points;
-		vec3 p0 (0, 0, 1);
-		for (float t = 0.5; t <= 5.5; t=t+1){
-			vec3 point(p0*coshf(t)+ vec3(cos(r), sin(r),0)*sinhf(t));
-			// Sztereografikus vetítés alkalmazása
-			float scaleFactor = 1.0f / (1.0f + point.z); // Állandó a vetítéshez
-			point.x *= scaleFactor;
-			point.y *= scaleFactor;
-			point.z = 0;
-			points.push_back(point);
-		}
+			vec3 p0(0, 0, 1);
+			for (float t = 0.5; t <= 5.5/*5.5*/; t = t + 1) {
+				vec3 point(p0 * coshf(t) + vec3(cos(r), sin(r), 0) * sinhf(t));
+				// Sztereografikus vetítés 
+				float scaleFactor = 1.0f / (1.0f + point.z);
+				point.x *= scaleFactor;
+				point.y *= scaleFactor;
+				point.z = 0;
+				points.push_back(point);
+			}
+		
 		return points;
 	}
 
 	std::vector<vec3> GetEuklidesCircles() {
-		int i = 0;
 		std::vector<vec3> circles;
-		for (int r = 0; r < 360; r += 40) {
+		for (int r = 0; r < 360 /*360*/; r += 40) {
 			std::vector<vec3> points = getPointsOfLine(r);
 			for (const auto& P : points) {
 				float d = sqrtf(P.x * P.x + P.y * P.y);
@@ -145,12 +144,6 @@ class PoincareTexture {
 		return distance <= radius;
 	}
 
-	vec4 SwapColor(vec4 current) {
-		if (current.x == 1.0f)
-		{
-			return vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
-		}else return vec4(1.0f, 1.0f, 0.0f, 1.0f); //sárga
-	}
 
 public:
 	PoincareTexture(int width, int height) : width(width), height(height) {
@@ -231,7 +224,7 @@ public:
 	int GetWidth() const { return width; }
 	int GetHeight() const { return height; }
 
-	void setResolution(int v) { this->resolution = v; }
+	void setResolution(int v) { width += v; height += v; }
 
 	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
 	unsigned int GetTextureID() const { return textureID; }
@@ -359,14 +352,7 @@ PoincareTexture* texture;
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	int width = 128, height = 128;				// create checkerboard texture procedurally
-	std::vector<vec4> image(width * height);
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			float luminance = ((x / 16) % 2) ^ ((y / 16) % 2);
-			image[y * width + x] = vec4(luminance, luminance, luminance, 1);
-		}
-	}
+	int width = 300, height = 300;				// create checkerboard texture procedurally
 	
 
 	texture =  new PoincareTexture(width, height);
