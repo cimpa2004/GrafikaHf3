@@ -120,15 +120,15 @@ class PoincareTexture {
 		return points;
 	}
 
-	std::vector<vec3> GetEuklidesCircles() {
+	std::vector<vec3> GetEuklidesCircles() {// x,y,r
 		std::vector<vec3> circles;
 		for (int r = 0; r < 360 /*360*/; r += 40) {
 			std::vector<vec3> points = getPointsOfLine(r);
 			for (const auto& P : points) {
-				float d = sqrtf(P.x * P.x + P.y * P.y);
+				float d = P.x * P.x + P.y * P.y;
 				vec3 Pinv = P / d;
 				Pinv.z = 1;
-				vec3 center = (P + Pinv) / 2.0f;
+				vec3 center = P + (Pinv - P) / 2.0f;
 				center.z = 1;
 				float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
 				circles.push_back(vec3(center.x, center.y, radius));
@@ -151,10 +151,10 @@ public:
 		textureID = 1;
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_2D, textureID);
-		/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);*/
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
 	//~PoincareTexture() {
@@ -224,7 +224,16 @@ public:
 	int GetWidth() const { return width; }
 	int GetHeight() const { return height; }
 
-	void setResolution(int v) { width += v; height += v; }
+	void ChangeResolution(int v) { 
+		width += v; height += v; 
+		glGenTextures(1, &textureID);
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
 
 	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
 	unsigned int GetTextureID() const { return textureID; }
@@ -388,6 +397,15 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	}
 	else if (key == 'a') {
 		animatonOn = true;
+	}
+	else if (key == 'r') {
+		texture->ChangeResolution(-100);
+		glutPostRedisplay();
+	}
+	else if (key == 'R') {
+		texture->ChangeResolution(100);
+		star->Draw();
+		glutPostRedisplay();
 	}
 }
 
