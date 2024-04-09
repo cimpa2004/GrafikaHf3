@@ -31,6 +31,8 @@
 // Tudomasul veszem, hogy a forrasmegjeloles kotelmenek megsertese eseten a hazifeladatra adhato pontokat
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
+//kiinduló projekt: https://cg.iit.bme.hu/portal/oktatott-targyak/szamitogepes-grafika-es-kepfeldolgozas/grafikus-alap-hw/sw 
+
 #include "framework.h"
 
 // vertex shader in GLSL
@@ -268,7 +270,6 @@ public:
 		gpuProgram.setUniform(MVPTransform, "MVP");
 		gpuProgram.setUniform(isGPUProcedural, "isGPUProcedural");
 		gpuProgram.setUniform(texture, "textureUnit");
-
 		glBindVertexArray(vao);	
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 10);	
 	}
@@ -347,8 +348,7 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		animatonOn = true;
 	}
 	else if (key == 'r') {
-		if (resolution > 100)
-		{
+		if (resolution > 100){
 			resolution -= 100;
 		}
 		printf("Resolution: %d\n", resolution);
