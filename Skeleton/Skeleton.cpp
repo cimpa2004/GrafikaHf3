@@ -1,5 +1,5 @@
-//=============================================================================================
-// Mintaprogram: Zöld háromszög. Ervenyes 2019. osztol.
+ï»¿//=============================================================================================
+// Mintaprogram: ZÃ¶ld hÃ¡romszÃ¶g. Ervenyes 2019. osztol.
 //
 // A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat, BOM kihuzando.
 // Tilos:
@@ -18,7 +18,7 @@
 //
 // NYILATKOZAT
 // ---------------------------------------------------------------------------------------------
-// Nev    : Dézsenyi Balázs Zoltán
+// Nev    : DÃ©zsenyi BalÃ¡zs ZoltÃ¡n
 // Neptun : JJSFIL
 // ---------------------------------------------------------------------------------------------
 // ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy
@@ -101,8 +101,8 @@ int isGPUProcedural = (int)false;
 
 
 class PoincareTexture {
-	unsigned int textureID; // Az OpenGL textúra azonosítója
-	int width, height; // Textúra mérete
+	unsigned int textureID; // Az OpenGL textÃºra azonosÃ­tÃ³ja
+	int width, height; // TextÃºra mÃ©rete
 	int resolution = 300;
 
 	std::vector<vec3> getPointsOfLine(int r) {
@@ -110,13 +110,12 @@ class PoincareTexture {
 		vec3 p0 (0, 0, 1);
 		for (float t = 0.5; t <= 5.5; t=t+1){
 			vec3 point(p0*coshf(t)+ vec3(cos(r), sin(r),0)*sinhf(t));
-			// Sztereografikus vetítés alkalmazása
-			float scaleFactor = 1.0f / (1.0f + point.z); // Állandó a vetítéshez
+			// Sztereografikus vetÃ­tÃ©s alkalmazÃ¡sa
+			float scaleFactor = 1.0f / (1.0f + point.z); // ÃllandÃ³ a vetÃ­tÃ©shez
 			point.x *= scaleFactor;
 			point.y *= scaleFactor;
 			point.z = 0;
 			points.push_back(point);
-			printf("x:%f, y:%f\n",point.x,point.y);
 		}
 		return points;
 	}
@@ -134,9 +133,6 @@ class PoincareTexture {
 				center.z = 1;
 				float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
 				circles.push_back(vec3(center.x, center.y, radius));
-				//printf("x:%f, y:%f\n", center.x, center.y);
-				/*printf("%d\n", i);
-				i++;*/
 			}
 		}
 		return circles;
@@ -150,15 +146,15 @@ class PoincareTexture {
 	}
 
 	vec4 SwapColor(vec4 current) {
-		if (current.x == 1.f)
+		if (current.x == 1.0f)
 		{
-			return vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
-		}else return vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			return vec4(0.0f, 0.0f, 1.0f, 1.0f); // KÃ©k
+		}else return vec4(1.0f, 1.0f, 0.0f, 1.0f); //sÃ¡rga
 	}
 
 public:
 	PoincareTexture(int width, int height) : width(width), height(height) {
-		// Textúra létrehozása OpenGL segítségével
+		// TextÃºra lÃ©trehozÃ¡sa OpenGL segÃ­tsÃ©gÃ©vel
 		textureID = 1;
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_2D, textureID);
@@ -169,25 +165,24 @@ public:
 	}
 
 	//~PoincareTexture() {
-	//	// Textúra felszabadítása
+	//	// TextÃºra felszabadÃ­tÃ¡sa
 	//	glDeleteTextures(1, &textureID);
 	//}
 
 	std::vector<vec4> RenderToTexture() {
-		std::vector<vec4> image(width * height); // A textúra képét tároló vektor
-		vec4 color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
-		// Poincaré kör textúra tartalmának kiszámítása
+		std::vector<vec4> image(width * height); // A textÃºra kÃ©pÃ©t tÃ¡rolÃ³ vektor
+		// PoincarÃ© kÃ¶r textÃºra tartalmÃ¡nak kiszÃ¡mÃ­tÃ¡sa
 		float centerX = width / 2.0f;
 		float centerY = height / 2.0f;
-		float radius = fmin(centerX, centerY) - 1.0f; // Kör sugara, hogy ne lépje túl a kép méretét
+		float radius = fmin(centerX, centerY) - 1.0f; // KÃ¶r sugara, hogy ne lÃ©pje tÃºl a kÃ©p mÃ©retÃ©t
 
-		// Alapszín beállítása
+		// AlapszÃ­n beÃ¡llÃ­tÃ¡sa
 		vec4 baseColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-		// Körök megszerzése az alap pontok alapján
+		// KÃ¶rÃ¶k megszerzÃ©se az alap pontok alapjÃ¡n
 		std::vector<vec3> circles = GetEuklidesCircles();
 			
-			// Kör alakú cellák színezése
+			// KÃ¶r alakÃº cellÃ¡k szÃ­nezÃ©se
 			for (int y = 0; y < height; y++) {
 				for (int x = 0; x < width; x++) {
 					float cX = 2.0f * x / width - 1;
@@ -198,26 +193,26 @@ public:
 					float distance = sqrtf(dx * dx + dy * dy);
 					vec3 currentPixel(cX, cY, 1);
 
-					// Iteráció minden körön és ellenõrzés, hogy a pixel azon belül van-e
-					for (vec3 circle : circles) {
+					// IterÃ¡ciÃ³ minden kÃ¶rÃ¶n Ã©s ellenÃµrzÃ©s, hogy a pixel azon belÃ¼l van-e
+					for (const vec3 &circle : circles) {
 						if (IsPointInCircle(currentPixel, circle)) {
 							count++;
 						}
 					}
 
-					// Körön belüli vagy kívüli pont ellenõrzése
+					// KÃ¶rÃ¶n belÃ¼li vagy kÃ­vÃ¼li pont ellenÃµrzÃ©se
 					if (distance < radius) {
 
-						// A pont színezése az aktuális körök számától függõen
+						// A pont szÃ­nezÃ©se az aktuÃ¡lis kÃ¶rÃ¶k szÃ¡mÃ¡tÃ³l fÃ¼ggÃµen
 						if (count % 2 == 0) {
-							image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // Sárga
+							image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // SÃ¡rga
 						}
 						else {
-							image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+							image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // KÃ©k
 						}
 					}
 					else {
-						// A körön kívül lévõ pont fekete
+						// A kÃ¶rÃ¶n kÃ­vÃ¼l lÃ©vÃµ pont fekete
 						image[y * width + x] = baseColor;
 					}
 				}
@@ -232,25 +227,25 @@ public:
 
 
 
-	// Getter függvények a textúra szélességének és magasságának lekérdezésére
+	// Getter fÃ¼ggvÃ©nyek a textÃºra szÃ©lessÃ©gÃ©nek Ã©s magassÃ¡gÃ¡nak lekÃ©rdezÃ©sÃ©re
 	int GetWidth() const { return width; }
 	int GetHeight() const { return height; }
 
 	void setResolution(int v) { this->resolution = v; }
 
-	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
+	// Getter fÃ¼ggvÃ©ny az OpenGL textÃºra azonosÃ­tÃ³jÃ¡nak lekÃ©rdezÃ©sÃ©re
 	unsigned int GetTextureID() const { return textureID; }
 };
 
 
 class Star {
 	unsigned int vao, vbo[2];
-	vec2 vertices[10], uvs[10]; //4 csúcs és textura coord
+	vec2 vertices[10], uvs[10]; //4 csÃºcs Ã©s textura coord
 	Texture texture;
 	int s = 40;
 public:
 	Star(int width, int height, const std::vector<vec4>& image) : texture(width, height, image) {
-		vertices[0] = vec2(50, 30); uvs[0] = vec2(0.5, 0.5); // teljes képet texturázzuk rá
+		vertices[0] = vec2(50, 30); uvs[0] = vec2(0.5, 0.5); // teljes kÃ©pet texturÃ¡zzuk rÃ¡
 		vertices[1] = vec2(90, 70);  uvs[1] = vec2(1, 1);
 		vertices[2] = vec2(50, 30+s);   uvs[2] = vec2(0.5, 1);
 		vertices[3] = vec2(10, 70);  uvs[3] = vec2(0, 1);
@@ -278,7 +273,7 @@ public:
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);     
 	}
 
-	void ChangeS(int value) { //s lehet nulla de akkor eltûnik
+	void ChangeS(int value) { //s lehet nulla de akkor eltÅ±nik
 		s += value;
 		vertices[2] = vec2(vertices[0].x, vertices[0].y + s);
 		vertices[4] = vec2(vertices[0].x - s, vertices[0].y);
