@@ -81,6 +81,17 @@ const char* fragmentSource = R"(
 	}
 )";
 
+enum TextureFilteringMode {
+	NEAREST = GL_NEAREST,
+	LINEAR = GL_LINEAR
+};
+TextureFilteringMode currentFilterMode = LINEAR;
+void setTextureFilteringMode(TextureFilteringMode mode) {
+	currentFilterMode = mode;
+	// Set the texture filtering mode
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode);
+}
 // 2D camera
 class Camera2D {
 	vec2 wCenter; // center in world coordinates
@@ -101,8 +112,8 @@ int isGPUProcedural = (int)false;
 
 
 class PoincareTexture {
-	unsigned int textureID; // Az OpenGL textúra azonosítója
-	int width, height; // Textúra mérete
+	unsigned int textureID; 
+	int width, height; 
 
 	std::vector<vec3> getPointsOfLine(int r) {
 		std::vector<vec3> points;
@@ -127,7 +138,7 @@ class PoincareTexture {
 		std::vector<vec3> points = getPointsOfLine(0);
 		for (int r = 0; r < 360; r += 40) {
 			for (const auto& P : points) {
-				float angle_rad = r * M_PI / 180.0f; // Convert degrees to radians
+				float angle_rad = r * M_PI / 180.0f; 
 				float x_rotated = P.x * cos(angle_rad) - P.y * sin(angle_rad);
 				float y_rotated = P.x * sin(angle_rad) + P.y * cos(angle_rad);
 				vec3 P_rotated(x_rotated, y_rotated, P.z);
@@ -153,35 +164,23 @@ class PoincareTexture {
 
 public:
 	PoincareTexture(int width, int height) : width(width), height(height) {
-		// Textúra létrehozása OpenGL segítségével
 		textureID = 1;
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_2D, textureID);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, currentFilterMode);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, currentFilterMode);
 	}
 
-	//~PoincareTexture() {
-	//	// Textúra felszabadítása
-	//	glDeleteTextures(1, &textureID);
-	//}
 
 	std::vector<vec4> RenderToTexture() {
-		std::vector<vec4> image(width * height); // A textúra képét tároló vektor
-		// Poincaré kör textúra tartalmának kiszámítása
+		std::vector<vec4> image(width * height); 
 		float centerX = width / 2.0f;
 		float centerY = height / 2.0f;
-		float radius = fmin(centerX, centerY) - 1.0f; // Kör sugara, hogy ne lépje túl a kép méretét
-
-		// Alapszín beállítása
+		float radius = fmin(centerX, centerY) - 1.0f; 
 		vec4 baseColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
-		// Körök megszerzése az alap pontok alapján
 		std::vector<vec3> circles = GetEuklidesCircles();
-			
-			// Kör alakú cellák színezése
 			for (int y = 0; y < height; y++) {
 				for (int x = 0; x < width; x++) {
 					float cX = 2.0f * x / width - 1;
@@ -192,54 +191,30 @@ public:
 					float distance = sqrtf(dx * dx + dy * dy);
 					vec3 currentPixel(cX, cY, 1);
 
-					// Iteráció minden körön és ellenõrzés, hogy a pixel azon belül van-e
 					for (const vec3 &circle : circles) {
 						if (IsPointInCircle(currentPixel, circle)) {
 							count++;
 						}
 					}
 
-					// Körön belüli vagy kívüli pont ellenõrzése
 					if (distance < radius) {
 
-						// A pont színezése az aktuális körök számától függõen
 						if (count % 2 == 0) {
-							image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); // Sárga
+							image[y * width + x] = vec4(1.0f, 1.0f, 0.0f, 1.0f); 
 						}
 						else {
-							image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f); // Kék
+							image[y * width + x] = vec4(0.0f, 0.0f, 1.0f, 1.0f);
 						}
 					}
 					else {
-						// A körön kívül lévõ pont fekete
 						image[y * width + x] = baseColor;
 					}
 				}
-			
 		}
 
 		return image;
 	}
 
-
-
-
-
-
-	// Getter függvények a textúra szélességének és magasságának lekérdezésére
-	int GetWidth() const { return width; }
-	int GetHeight() const { return height; }
-
-	void ChangeResolution(int v) { 
-		width += v; height += v; 
-		glGenTextures(1, &textureID);
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	}
 
 	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
 	unsigned int GetTextureID() const { return textureID; }
@@ -299,8 +274,8 @@ public:
 		gpuProgram.setUniform(isGPUProcedural, "isGPUProcedural");
 		gpuProgram.setUniform(texture, "textureUnit");
 
-		glBindVertexArray(vao);	// make the vao and its vbos active playing the role of the data source
-		glDrawArrays(GL_TRIANGLE_FAN, 0, 10);	// draw two triangles forming a quad
+		glBindVertexArray(vao);	
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 10);	
 	}
 
 	void RotateAroundOrigin(float angle) {
@@ -352,6 +327,11 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
 
+	void swapTexture(std::vector<vec4>& image) {
+		return;
+
+	}
+
 
 
 
@@ -359,6 +339,7 @@ public:
 
 };
 
+int resolution = 300;
 
 
 Star* star; // The virtual world: one object
@@ -366,12 +347,10 @@ PoincareTexture* texture;
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
-
-	int width = 300, height = 300;				// create checkerboard texture procedurally
 	
 
-	texture =  new PoincareTexture(width, height);
-	star = new Star(width, height, texture->RenderToTexture());
+	texture =  new PoincareTexture(resolution, resolution);
+	star = new Star(resolution, resolution, texture->RenderToTexture());
 
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
@@ -405,13 +384,29 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 		animatonOn = true;
 	}
 	else if (key == 'r') {
-		texture->ChangeResolution(-100);
+		if (resolution > 100)
+		{
+			resolution -= 100;
+		}
+		printf("Resolution: %d\n", resolution);
+		texture = new PoincareTexture(resolution, resolution);
+		star = new Star(resolution, resolution, texture->RenderToTexture());
 		glutPostRedisplay();
 	}
 	else if (key == 'R') {
-		texture->ChangeResolution(100);
-		star->Draw();
+		resolution += 100;
+		printf("Resolution: %d\n",resolution);
+		texture = new PoincareTexture(resolution, resolution);
+		star = new Star(resolution, resolution, texture->RenderToTexture());
 		glutPostRedisplay();
+	}
+	else if (key == 't') {
+		setTextureFilteringMode(NEAREST);
+
+	}
+	else if (key == 'T') {
+		setTextureFilteringMode(LINEAR);
+
 	}
 }
 
@@ -445,6 +440,7 @@ void onMouse(int button, int state, int pX, int pY) {
 
 void Animate() {
 	if (animatonOn) {
+		printf("Animating\n");
 		static long prevTime = glutGet(GLUT_ELAPSED_TIME);
 		long currentTime = glutGet(GLUT_ELAPSED_TIME);
 		float elapsedTime = (currentTime - prevTime) / 1000.0f; // Convert milliseconds to seconds
