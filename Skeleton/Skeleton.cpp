@@ -215,20 +215,18 @@ public:
 		return image;
 	}
 
-
-	// Getter függvény az OpenGL textúra azonosítójának lekérdezésére
 	unsigned int GetTextureID() const { return textureID; }
 };
 
 
 class Star {
 	unsigned int vao, vbo[2];
-	vec2 vertices[10], uvs[10]; //4 csúcs és textura coord
+	vec2 vertices[10], uvs[10];
 	Texture texture;
 	int s = 40;
 public:
 	Star(int width, int height, const std::vector<vec4>& image) : texture(width, height, image) {
-		vertices[0] = vec2(50, 30); uvs[0] = vec2(0.5, 0.5); // teljes képet texturázzuk rá
+		vertices[0] = vec2(50, 30); uvs[0] = vec2(0.5, 0.5); 
 		vertices[1] = vec2(90, 70);  uvs[1] = vec2(1, 1);
 		vertices[2] = vec2(50, 30+s);   uvs[2] = vec2(0.5, 1);
 		vertices[3] = vec2(10, 70);  uvs[3] = vec2(0, 1);
@@ -242,21 +240,18 @@ public:
 		glBindVertexArray(vao);		
 
 		glGenBuffers(2, vbo);	
-
-		// vertex coordinates: vbo[0] -> Attrib Array 0 -> vertexPosition of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);    
 
-		// vertex coordinates: vbo[1] -> Attrib Array 1 -> vertexUV of the vertex shader
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);     
 	}
 
-	void ChangeS(int value) { //s lehet nulla de akkor eltűnik
+	void ChangeS(int value) { 
 		s += value;
 		vertices[2] = vec2(vertices[0].x, vertices[0].y + s);
 		vertices[4] = vec2(vertices[0].x - s, vertices[0].y);
@@ -279,72 +274,46 @@ public:
 	}
 
 	void RotateAroundOrigin(float angle) {
-		// Calculate sine and cosine of the angle
 		float cosAngle = cosf(angle);
 		float sinAngle = sinf(angle);
 
-		// Define the origin of rotation
 		vec2 origin = vertices[0];
 
-		// Iterate through all vertices (excluding the first one)
 		for (int i = 1; i < 10; ++i) {
-			// Translate the vertex to the origin
 			vec2 translated = vertices[i] - origin;
-
-			// Rotate the translated vertex
 			float x = translated.x * cosAngle - translated.y * sinAngle;
 			float y = translated.x * sinAngle + translated.y * cosAngle;
-
-			// Translate the vertex back to its original position
 			vertices[i] = vec2(x, y) + origin;
 		}
 
-		// Update GPU buffer data
+
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
 	void MoveOnCircularPath(float elapsedTime) {
-		// Calculate the angle based on time elapsed
-		float angle = 2 * M_PI * (elapsedTime / 10.0f); // 10 seconds for a full circle
-
-		// Calculate new positions for each vertex
+		float angle = 2 * M_PI * (elapsedTime / 10.0f); 
 		for (int i = 0; i < 10; ++i) {
-			// Calculate the displacement of the vertex relative to the center (20, 30)
 			float deltaX = vertices[i].x - 20;
 			float deltaY = vertices[i].y - 30;
 
-			// Calculate the new position for the vertex using the circular path formula
 			float newX = 20 + deltaX * cos(angle) - deltaY * sin(angle);
 			float newY = 30 + deltaX * sin(angle) + deltaY * cos(angle);
 
-			// Update the vertex position
 			vertices[i].x = newX;
 			vertices[i].y = newY;
 		}
 
-		// Update GPU buffer data
 		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 	}
-
-	void swapTexture(std::vector<vec4>& image) {
-		return;
-
-	}
-
-
-
-
-
 
 };
 
 int resolution = 300;
 
 
-Star* star; // The virtual world: one object
+Star* star; 
 PoincareTexture* texture;
-// Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 	
@@ -352,7 +321,6 @@ void onInitialization() {
 	texture =  new PoincareTexture(resolution, resolution);
 	star = new Star(resolution, resolution, texture->RenderToTexture());
 
-	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "fragmentColor");
 
 	printf("\nUsage: \n");
@@ -362,21 +330,16 @@ void onInitialization() {
 
 bool animatonOn = false;
 
-// Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0, 0, 0, 0);							// background color 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the screen
+	glClearColor(0, 0, 0, 0);						
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	star->Draw();
-	glutSwapBuffers();									// exchange the two buffers
+	glutSwapBuffers();									
 }
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-	if (key == ' ') {
-		isGPUProcedural = !isGPUProcedural;
-		glutPostRedisplay();// if d, invalidate display, i.e. redraw
-	}
-	else if(key == 'h') {
+	if(key == 'h') {
 		star->ChangeS(-10);
 		glutPostRedisplay();
 	}
@@ -440,22 +403,17 @@ void onMouse(int button, int state, int pX, int pY) {
 
 void Animate() {
 	if (animatonOn) {
-		printf("Animating\n");
 		static long prevTime = glutGet(GLUT_ELAPSED_TIME);
 		long currentTime = glutGet(GLUT_ELAPSED_TIME);
-		float elapsedTime = (currentTime - prevTime) / 1000.0f; // Convert milliseconds to seconds
+		float elapsedTime = (currentTime - prevTime) / 1000.0f;
 		prevTime = currentTime;
 
-		// Calculate the rotation frequencies
-		float rotationFrequencyAroundOrigin = 0.2f; // Rotations per second
+		float rotationFrequencyAroundOrigin = 0.2f;
 
-		// Scale factor to adjust rotation speed
 		float scaleFactor = 0.5f;
 
-		// Calculate the rotation angles for this frame
 		float rotationAngleAroundOrigin = 2 * M_PI * rotationFrequencyAroundOrigin * elapsedTime * scaleFactor;
 
-		// Rotate the star around its origin
 		star->RotateAroundOrigin(rotationAngleAroundOrigin);
 		star->MoveOnCircularPath(elapsedTime);
 	}
