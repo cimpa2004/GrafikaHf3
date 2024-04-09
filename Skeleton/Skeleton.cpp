@@ -107,6 +107,7 @@ class PoincareTexture {
 	std::vector<vec3> getPointsOfLine(int r) {
 		std::vector<vec3> points;
 			vec3 p0(0, 0, 1);
+			mat4 rotationMatrix = RotationMatrix(r, vec3(0, 0, 1));
 			for (float t = 0.5; t <= 5.5/*5.5*/; t = t + 1) {
 				vec3 point(p0 * coshf(t) + vec3(cos(r), sin(r), 0) * sinhf(t));
 				// Sztereografikus vetítés 
@@ -120,17 +121,22 @@ class PoincareTexture {
 		return points;
 	}
 
-	std::vector<vec3> GetEuklidesCircles() {// x,y,r
+
+	std::vector<vec3> GetEuklidesCircles() { // x,y,r
 		std::vector<vec3> circles;
-		for (int r = 0; r < 360 /*360*/; r += 40) {
-			std::vector<vec3> points = getPointsOfLine(r);
+		std::vector<vec3> points = getPointsOfLine(0);
+		for (int r = 0; r < 360; r += 40) {
 			for (const auto& P : points) {
-				float d = P.x * P.x + P.y * P.y;
-				vec3 Pinv = P / d;
+				float angle_rad = r * M_PI / 180.0f; // Convert degrees to radians
+				float x_rotated = P.x * cos(angle_rad) - P.y * sin(angle_rad);
+				float y_rotated = P.x * sin(angle_rad) + P.y * cos(angle_rad);
+				vec3 P_rotated(x_rotated, y_rotated, P.z);
+				float d = P_rotated.x * P_rotated.x + P_rotated.y * P_rotated.y;
+				vec3 Pinv = P_rotated / d;
 				Pinv.z = 1;
-				vec3 center = P + (Pinv - P) / 2.0f;
+				vec3 center = P_rotated + (Pinv - P_rotated) / 2.0f;
 				center.z = 1;
-				float radius = sqrtf(powf(P.x - center.x, 2) + powf(P.y - center.y, 2));
+				float radius = sqrtf(powf(P_rotated.x - center.x, 2) + powf(P_rotated.y - center.y, 2));
 				circles.push_back(vec3(center.x, center.y, radius));
 			}
 		}
